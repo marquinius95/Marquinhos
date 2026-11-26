@@ -2,10 +2,187 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mi página</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 16px; }
+    form, .item { border: 1px solid #ccc; border-radius: 8px; padding: 16px; margin: 16px 0; }
+    input, select, button { font: inherit; margin: 6px 0; padding: 8px; }
+    input { max-width: 100%; width: 420px; }
+    img, iframe { display: block; max-width: 100%; margin-top: 12px; }
+    iframe { width: 100%; height: 350px; border: 1px solid #ccc; }
+    .admin { background: #f3f3f3; padding: 16px; border-radius: 8px; }
+  </style>
 </head>
 <body>
   <h1>Bonjour</h1>
-  <p>Esta es mi paja web.</p>
+  <p>Esta es mi página web.</p>
+
+  <button id="loginButton" type="button">Acceder como administrador</button>
+  <button id="logoutButton" type="button" hidden>Cerrar sesión de administrador</button>
+
+  <section id="adminPanel" class="admin" hidden>
+    <h2>Agregar contenido</h2>
+    <form id="contentForm">
+      <label for="contentType">Tipo de contenido:</label><br>
+      <select id="contentType">
+        <option value="link">Enlace</option>
+        <option value="image">Imagen</option>
+        <option value="preview">Vista previa de página</option>
+      </select><br>
+
+      <label for="title">Título:</label><br>
+      <input id="title" required maxlength="100" placeholder="Por ejemplo, Mi sitio favorito"><br>
+
+      <label for="url">Dirección web (URL):</label><br>
+      <input id="url" type="url" required placeholder="https://ejemplo.com"><br>
+
+      <button type="submit">Agregar</button>
+    </form>
+  </section>
+
+  <h2>Contenido</h2>
+  <div id="contentList"></div>
+
+  <script>
+    // Esta clave queda visible para cualquiera que inspeccione el código de la página.
+    const ADMIN_PASSWORD = "Laterceracabraypuerta27";
+    const STORAGE_KEY = "miPaginaContenido";
+
+    const loginButton = document.getElementById("loginButton");
+    const logoutButton = document.getElementById("logoutButton");
+    const adminPanel = document.getElementById("adminPanel");
+    const contentForm = document.getElementById("contentForm");
+    const contentList = document.getElementById("contentList");
+
+    function getItems() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      } catch {
+        return [];
+      }
+    }
+
+    function makeSafeUrl(value) {
+      try {
+        const url = new URL(value);
+        return ["http:", "https:"].includes(url.protocol) ? url.href : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function renderItems() {
+      contentList.replaceChildren();
+      const items = getItems();
+
+      if (items.length === 0) {
+        contentList.textContent = "Todavía no hay contenido agregado.";
+        return;
+      }
+
+      items.forEach((item, index) => {
+        const card = document.createElement("article");
+        card.className = "item";
+
+        const heading = document.createElement("h3");
+        heading.textContent = item.title;
+        card.appendChild(heading);
+
+        if (item.type === "link") {
+          const link = document.createElement("a");
+          link.href = item.url;
+          link.textContent = "Abrir enlace";
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          card.appendChild(link);
+        } else if (item.type === "image") {
+          const image = document.createElement("img");
+          image.src = item.url;
+          image.alt = item.title;
+          image.loading = "lazy";
+          card.appendChild(image);
+        } else if (item.type === "preview") {
+          const note = document.createElement("p");
+          note.textContent = "Algunas páginas no permiten mostrarse en una vista previa.";
+          card.appendChild(note);
+
+          const frame = document.createElement("iframe");
+          frame.src = item.url;
+          frame.title = "Vista previa: " + item.title;
+          frame.loading = "lazy";
+          frame.referrerPolicy = "no-referrer";
+          frame.sandbox = "allow-scripts allow-forms";
+          card.appendChild(frame);
+
+          const link = document.createElement("a");
+          link.href = item.url;
+          link.textContent = "Abrir página en otra pestaña";
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          card.appendChild(link);
+        }
+
+        if (!adminPanel.hidden) {
+          const removeButton = document.createElement("button");
+          removeButton.type = "button";
+          removeButton.textContent = "Eliminar";
+          removeButton.addEventListener("click", () => {
+            const updatedItems = getItems();
+            updatedItems.splice(index, 1);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedItems));
+            renderItems();
+          });
+          card.appendChild(removeButton);
+        }
+
+        contentList.appendChild(card);
+      });
+    }
+
+    loginButton.addEventListener("click", () => {
+      const enteredPassword = prompt("Introduce la clave de administrador:");
+      if (enteredPassword === ADMIN_PASSWORD) {
+        adminPanel.hidden = false;
+        loginButton.hidden = true;
+        logoutButton.hidden = false;
+        renderItems();
+      } else if (enteredPassword !== null) {
+        alert("Clave incorrecta.");
+      }
+    });
+
+    logoutButton.addEventListener("click", () => {
+      adminPanel.hidden = true;
+      loginButton.hidden = false;
+      logoutButton.hidden = true;
+      renderItems();
+    });
+
+    contentForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+
+      const title = document.getElementById("title").value.trim();
+      const url = makeSafeUrl(document.getElementById("url").value.trim());
+
+      if (!url) {
+        alert("Introduce una dirección válida que empiece con http:// o https://.");
+        return;
+      }
+
+      const items = getItems();
+      items.push({
+        type: document.getElementById("contentType").value,
+        title,
+        url
+      });
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      contentForm.reset();
+      renderItems();
+    });
+
+    renderItems();
+  </script>
 </body>
 </html>
